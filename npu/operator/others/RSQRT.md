@@ -9,7 +9,7 @@ RSQRT = Reciprocal Square Root，倒数平方根，计算或近似 $\frac{1}{\sq
 
 ## 在 NPU 里面哪里会出现 RSQRT
 
-1. [[RMSNorm]] 的 `1 / √mean(x² + ε)`$\frac{1}{\sqrt{\mean{x^2+\}}}$。
+1. [[RMSNorm]] 的 `1 / √mean(x² + ε)`。
 2. [[LayerNorm]] 的 `1 / √(variance + ε)`。
 3. 向量归一化、距离计算和部分传统视觉算子。
 
