@@ -1,7 +1,7 @@
 # RSQRT
 
 RSQRT = Reciprocal Square Root，倒数平方根，计算或近似 `1 / √x`。
-
+$\di$
 ## 功能
 
 可使用 LUT 初值加 Newton-Raphson 迭代，或采用专用平方根/除法单元。相较先求平方根再求倒数，直接 RSQRT 往往更适合归一化。
