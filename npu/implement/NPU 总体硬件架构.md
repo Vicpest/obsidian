@@ -25,14 +25,14 @@
 
 ## 模块职责
 
-| 模块 | 主要职责 | 映射算子 |
-| --- | --- | --- |
-| Matrix engine | 大规模乘加与输出累加 | [[npu/operator/tensor operator/GEMM|GEMM]]、[[npu/operator/tensor operator/Convolution|Convolution]] |
-| Vector engine | 逐元素运算、格式转换、寄存器级数据重排 | [[npu/operator/tensor operator/Elementwise|Elementwise]]、[[npu/operator/transformer common/RoPE|RoPE]]、[[npu/operator/tensor operator/Quantization|Quantization]] |
-| Reduction / SFU | Sum/Max 归约及复杂数值函数 | [[npu/operator/tensor operator/Reduction|Reduction]]、[[npu/operator/transformer common/Softmax|Softmax]]、[[npu/operator/others/RSQRT|RSQRT]] |
-| SRAM / cache | 提供高带宽 tile 缓冲与数据复用 | 激活、权重 tile、partial sum、K/V tile |
-| DMA / NoC | 片外/片上数据搬运与多核分发 | 权重预取、结果写回、KV 读写 |
-| Command processor | 执行编译器发出的指令、同步和事件 | tile 循环、双缓冲、核间调度 |
+| 模块                | 主要职责                | 映射算子                                      |
+| ----------------- | ------------------- | ----------------------------------------- |
+| Matrix engine     | 大规模乘加与输出累加          | [[GEMM]]、[[Convolution]]                  |
+| Vector engine     | 逐元素运算、格式转换、寄存器级数据重排 | [[Elementwise]]、[[RoPE]]、[[Quantization]] |
+| Reduction / SFU   | Sum/Max 归约及复杂数值函数   | [[Reduction]]、[[Softmax]]、[[RSQRT]]       |
+| SRAM / cache      | 提供高带宽 tile 缓冲与数据复用  | 激活、权重 tile、partial sum、K/V tile           |
+| DMA / NoC         | 片外/片上数据搬运与多核分发      | 权重预取、结果写回、KV 读写                           |
+| Command processor | 执行编译器发出的指令、同步和事件    | tile 循环、双缓冲、核间调度                          |
 
 ## 数据类型与累加精度
 
