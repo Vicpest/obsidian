@@ -15,7 +15,7 @@
 
 ## 端到端映射
 
-```text
+
 Token / hidden state
         │
         ▼
@@ -35,7 +35,6 @@ Norm → MLP [[npu/operator/tensor operator/GEMM|GEMM]] → [[npu/operator/tenso
         │
         ▼
 下一 Transformer 层 / logits
-```
 
 ## 设计边界
 
