@@ -15,15 +15,15 @@
 
 ## 通用张量算子
 
-| 算子 | 核心功能 | NPU 典型位置 |
-| --- | --- | --- |
-| [[GEMM]] | 矩阵乘法/批量矩阵乘法 | 线性层、卷积 lowering、Attention |
-| [[Convolution]] | 滑动窗口乘加 | CNN、视觉编码器 |
-| [[Elementwise]] | 逐元素算术、比较和选择 | 残差、偏置、门控、量化 |
-| [[Reduction]] | 沿一个或多个轴求和、最大值等 | Norm、[[Softmax]]、池化 |
-| [[Activation]] | ReLU、GELU、SiLU 等非线性 | MLP、门控网络、视觉网络 |
-| [[Quantization]] | 浮点与 INT8/INT4/FP8 表示转换 | 权重量化、激活量化、输出重标定 |
-| [[Layout Transform]] | Transpose、Reshape、Concat、Slice | 张量分块、算子衔接和 KV Cache |
+| 算子                   | 核心功能                           | NPU 典型位置                  |
+| -------------------- | ------------------------------ | ------------------------- |
+| [[GEMM]]             | 矩阵乘法/批量矩阵乘法                    | 线性层、卷积 lowering、Attention |
+| [[Convolution]]      | 滑动窗口乘加                         | CNN、视觉编码器                 |
+| [[Elementwise]]      | 逐元素算术、比较和选择                    | 残差、偏置、门控、量化               |
+| [[Reduction]]        | 沿一个或多个轴求和、最大值等                 | Norm、[[Softmax]]、池化       |
+| [[Activation]]       | ReLU、GELU、SiLU 等非线性            | MLP、门控网络、视觉网络             |
+| [[Quantization]]     | 浮点与 INT8/INT4/FP8 表示转换         | 权重量化、激活量化、输出重标定           |
+| [[Layout Transform]] | Transpose、Reshape、Concat、Slice | 张量分块、算子衔接和 KV Cache       |
 
 ## Transformer 常用复合算子
 
