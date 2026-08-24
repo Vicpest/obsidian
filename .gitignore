@@ -1,0 +1,10 @@
+# Obsidian workspace state is device-specific and changes frequently.
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache/
+
+# Deleted notes and local AI-agent state should not be synchronized.
+.trash/
+.agents/
+.claudian/
+.codex/
