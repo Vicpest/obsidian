@@ -12,8 +12,8 @@ h2 = h1 + MLP(Norm2(h1))
 ## 单层执行顺序
 
 1. **输入读取与 Norm**：DMA 将 hidden-state tile 读入片上 SRAM；向量引擎计算 [[npu/operator/transformer common/RMSNorm|RMSNorm]] 或 [[npu/operator/transformer common/LayerNorm|LayerNorm]]。
-2. **QKV 投影**：矩阵引擎执行 `XWq`、`XWk`、`XWv`。实现上可合并为一次输出通道更宽的 GEMM，减少 X 的重复读取。
-3. **位置编码与注意力**：对 Q/K 施加 [[npu/operator/transformer common/RoPE|RoPE]]；计算 `QKᵀ`、[[npu/operator/transformer common/Softmax|Softmax]]、`PV`。历史 K/V 从 [[npu/operator/transformer common/KV Cache|KV Cache]] 读取。
+2. **QKV 投影**：矩阵引擎执行 `XWq`、`XWk`、`XWv`。实现上可合并为一次输出通道更宽的 GEMM，减少 X 的重复读取；head layout、GQA/MQA 映射和 Cache 写入见 [[QKV 投影、布局与缓存]]。
+3. **位置编码与注意力**：对 Q/K 施加 [[npu/operator/transformer common/RoPE|RoPE]]；计算 `QKᵀ`、[[npu/operator/transformer common/Softmax|Softmax]]、`PV`。历史 K/V 从 [[npu/operator/transformer common/KV Cache|KV Cache]] 读取。Encoder、Decoder 及 Cross-Attention 的 Q/K/V 来源和 mask 不同，见 [[Encoder、Decoder 与交叉注意力]]。
 4. **输出投影与残差**：Attention 输出经 `Wo` 的 GEMM 后，与原 hidden state 逐元素相加。
 5. **MLP**：第二次 Norm 后执行上投影 GEMM；经过激活/门控；再执行下投影 GEMM 并做残差相加。
 6. **写回与层间交接**：结果可保留在 SRAM 供下一层读取；容量不足时写回 DRAM/HBM。
@@ -26,6 +26,8 @@ h2 = h1 + MLP(Norm2(h1))
 | Decode | 每步新增一个或少量 token | Q 很短，K/V 来自历史缓存 | KV Cache 带宽与小 GEMM 利用率 | KV 分页、连续 batching、低延迟调度 |
 
 Decode 不能重复计算历史 K/V；每层仅将新 token 的 K/V 追加到缓存。这是 [[npu/operator/transformer common/KV Cache|KV Cache]] 的核心价值。
+
+对于 Encoder 或 Encoder–Decoder 模型，详见 [[Encoder、Decoder 与交叉注意力]]：Encoder self-attention 通常双向可见；Decoder self-attention 必须使用 causal mask；cross-attention 的 K/V 来自固定的 encoder memory，因此可预先投影并在多个 Decode step 复用。
 
 ## 常见融合边界
 

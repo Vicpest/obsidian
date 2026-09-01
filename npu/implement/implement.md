@@ -7,6 +7,8 @@
 | 页面 | 关注的问题 | 对应内容 |
 | --- | --- | --- |
 | [[Transformer 推理工作流程]] | 一个 token / 一个 batch 依次经过什么计算 | Prefill、Decode、单层数据流 |
+| [[QKV 投影、布局与缓存]] | Q、K、V 如何产生、排布和存取 | 合并 QKV GEMM、RoPE、GQA/MQA、KV Cache 布局 |
+| [[Encoder、Decoder 与交叉注意力]] | 三种 Attention 在推理上有何差别 | self-attention、causal mask、cross-attention、静态 memory |
 | [[NPU 总体硬件架构]] | 哪些硬件模块承载这些计算 | 控制器、计算引擎、存储层级、DMA |
 | [[GEMM 与脉动阵列实现]] | 线性层如何高效执行 | Tile、PE 阵列、数据流、累加与量化 |
 | [[Attention 硬件实现]] | QKV、Softmax、KV Cache 如何协作 | 分块、online softmax、Prefill / Decode |
@@ -22,7 +24,7 @@ Token / hidden state
 [[npu/operator/transformer common/RMSNorm|RMSNorm]] / [[npu/operator/transformer common/LayerNorm|LayerNorm]] ──► 向量引擎 + 归约树
         │
         ▼
-QKV [[npu/operator/tensor operator/GEMM|GEMM]] ────────────────► PE 阵列 + 本地 SRAM
+QKV [[npu/operator/tensor operator/GEMM|GEMM]] ────────────────► PE 阵列 + 本地 SRAM（[[QKV 投影、布局与缓存|投影、布局与缓存]]）
         │
         ▼
 [[npu/operator/transformer common/RoPE|RoPE]] + [[npu/operator/transformer common/Attention|Attention]] ────► 向量引擎 + GEMM 阵列 + [[npu/operator/transformer common/KV Cache|KV Cache]]

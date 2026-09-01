@@ -18,7 +18,7 @@ X ── QKV GEMM ──► Q, K, V ──► [[npu/operator/transformer common/
                               output tile O
 ```
 
-`QKᵀ` 与 `PV` 都可使用矩阵引擎；scale、mask、max、指数和归一化适合向量/SFU 与归约引擎。
+`QKᵀ` 与 `PV` 都可使用矩阵引擎；scale、mask、max、指数和归一化适合向量/SFU 与归约引擎。QKV 的合并投影、head layout、RoPE 与写入 Cache 的顺序见 [[QKV 投影、布局与缓存]]。
 
 ## 分块与 online softmax
 
@@ -48,3 +48,11 @@ X ── QKV GEMM ──► Q, K, V ──► [[npu/operator/transformer common/
 ## KV Cache 数据布局
 
 K/V 可按 layer、KV head、sequence page、head dimension 分块。布局要让当前 Q tile 的 K/V 读取连续，避免每个 token 产生零散 DRAM 请求。详细调度与带宽计算见 [[存储层级、调度与性能分析]]。
+
+## Q/K/V 来源会改变数据复用
+
+- **Encoder self-attention**：Q、K、V 都来自当前 encoder tile；通常只需 padding mask，Q/K/V 可在同一层的片上流水线中复用。
+- **Decoder self-attention**：新 Q/K/V 来自当前 token；新 K/V 先追加到本层 Cache，随后与历史 Cache 共同参与 causal attention。
+- **Cross-attention**：Q 来自 Decoder，而 K/V 来自已完成的 encoder memory；K/V 可预投影并在多个 Decode step、甚至多个 beam 间复用。
+
+具体计算图、mask 和 buffer 生命周期见 [[Encoder、Decoder 与交叉注意力]]。
