@@ -2,7 +2,7 @@
 
 面向 Transformer 的 NPU 可把计算阵列组织为多个重复的 tile。每个 tile 将**低带宽控制**和**高带宽数据面**分开：控制核心/任务管理器负责发起和同步，矩阵、向量、归约单元与本地 SRAM 负责持续的数据流执行。这样既方便扩展 tile 数，也使 DMA、NoC 和双缓冲成为显式的可调度资源。
 
-> [!warning] 来源边界：本文的“Redwood”命名、具体 tile 规模、接口宽度、FPGA/ASIC 性能、面积和功耗数值来自 `reading/AINPU.md`。截至 2026-09-02，对公开 arXiv 的 “Redwood Transformer inference accelerator” / “Redwood tile accelerator” 检索未找到可对应的一手公开条目，因此这些专有实现细节**未作为已联网验证事实转写**。下文只保留可独立理解的通用设计模式；如补充论文 DOI、项目主页或代码仓库，应据其更新本页的案例部分。
+> [!info] Redwood 来源与证据边界：`reading/AINPU.md` 对应 [Architect Labs, *Redwood: A Frontier AI Accelerator Designed, Verified, and Deployed from Scratch in 2 Weeks by AI*, arXiv:2608.26418v2](https://arxiv.org/abs/2608.26418)。论文于 2026-08-28 更新为 v2，定位 Redwood 为单 batch、低功耗、超低延迟的 physical-AI 推理加速器，Redwood Nano 是其 FPGA 变体。本页据此吸收 tile、控制/数据面分离、DMA/NoC 和任务调度的架构案例；其 Samsung 8 nm 面积、功耗和相对 Jetson 的吞吐/能效为论文的**投影/评估结果**，不是已经量产芯片的独立实测事实，使用时应保留该限定。
 
 ## 通用 tile 组织
 
@@ -67,3 +67,15 @@ Host / runtime
 5. 小 shape、尾 tile、异构 request 是否有分桶/回退路径？
 
 性能定量建模与双缓冲原则见 [[存储层级、调度与性能分析]]。
+
+## Redwood 案例：应如何引用和解读
+
+该论文的摘要报告：Redwood 的软硬件、RTL、验证环境、固件与 kernel 由同一个 AI 驱动流程协同生成；其 FPGA 变体 Redwood Nano 运行 Llama 与 Qwen 等模型。论文还将设计投影到 Samsung 8 nm（Jetson Orin Nano 的工艺等级），相对同模型的测得 Jetson 基线报告 **1.75× throughput、1.9× lower power、3.4× performance/W**。
+
+这些数字可用于理解作者的 performance model 和架构目标，但做横向架构比较时必须同时标明：
+
+- 结果包含 FPGA 实测、性能模型和 ASIC 工艺投影三个层次，不能统一称为“芯片实测”。
+- 比较对象、模型、生成长度、batch、精度、主机/内存控制器是否计入，会直接改变 token/s 与 W 的含义。
+- 论文作者为 Architect Labs，目前为 arXiv 预印本；本笔记将它用作一手技术案例，而非将其视作已经独立复现或同行评审确认的行业基准。
+
+**一手来源**：[Architect Labs (2026), arXiv:2608.26418v2](https://arxiv.org/abs/2608.26418)（submitted 2026-08-26；v2 2026-08-28）。
