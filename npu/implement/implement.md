@@ -10,10 +10,12 @@
 | [[QKV 投影、布局与缓存]] | Q、K、V 如何产生、排布和存取 | 合并 QKV GEMM、RoPE、GQA/MQA、KV Cache 布局 |
 | [[Encoder、Decoder 与交叉注意力]] | 三种 Attention 在推理上有何差别 | self-attention、causal mask、cross-attention、静态 memory |
 | [[NPU 总体硬件架构]] | 哪些硬件模块承载这些计算 | 控制器、计算引擎、存储层级、DMA |
+| [[Tile 数据流与解耦控制]] | 如何把这些资源缩放为 tile 阵列 | 控制/数据面分离、任务事件、DMA、NoC、双缓冲 |
 | [[GEMM 与脉动阵列实现]] | 线性层如何高效执行 | Tile、PE 阵列、数据流、累加与量化 |
 | [[Attention 硬件实现]] | QKV、Softmax、KV Cache 如何协作 | 分块、online softmax、Prefill / Decode |
 | [[Norm、MLP 与向量引擎实现]] | 非 GEMM 算子如何映射 | RMSNorm、激活、SwiGLU、融合 |
 | [[存储层级、调度与性能分析]] | 为什么会带宽受限、如何调度 | SRAM、DRAM、DMA、Roofline、流水 |
+| [[稀疏计算与条件执行]] | “稀疏 TOPS”何时能转为性能 | 2:4、非结构化稀疏、MoE、动态 mask |
 
 ## 端到端映射
 
@@ -43,3 +45,4 @@ Norm → MLP [[npu/operator/tensor operator/GEMM|GEMM]] → [[npu/operator/tenso
 - 本文以推理为主；训练还需要反向传播、优化器状态和更高的片外带宽。
 - "算子" 是计算图语义，"硬件单元" 是实现资源：一个 [[npu/operator/tensor operator/GEMM|GEMM]] 可占用许多 [[npu/operator/others/PE|PE]]，而一个融合 kernel 可覆盖多个算子。
 - 具体实现会随精度（INT8 / INT4 / FP8 / BF16）、阵列大小、SRAM 容量和目标时钟而变化。
+- 稀疏/条件执行不是自动收益：它还取决于模式规则性、索引与通信开销、负载均衡和可用 kernel，详见 [[稀疏计算与条件执行]]。

@@ -41,3 +41,9 @@
 - **输出重标定**：写回前由 [[npu/operator/tensor operator/Quantization|Quantization]]、[[npu/operator/basic/LZD|LZD]] 与移位/舍入路径处理。
 
 矩阵引擎的详细映射见 [[GEMM 与脉动阵列实现]]；数据搬运与性能权衡见 [[存储层级、调度与性能分析]]。
+
+## 从模块图到 tile 阵列
+
+上述模块可以组织为多个相同或近似相同的 compute tile：tile 内有本地 SRAM、矩阵/向量/归约资源和轻量任务控制；tile 间由 NoC 交换数据和事件，边缘/全局 DMA 连接外部内存。控制面只提交任务与依赖，数据面持续运行 GEMM、attention 或向量 kernel。这样的分层有利于扩展阵列规模、安排双缓冲和降低控制对高带宽路径的干扰，详见 [[Tile 数据流与解耦控制]]。
+
+如果设计声称支持稀疏或 MoE，还要在模块图之外说明压缩格式、metadata/索引路径、动态路由和通信调度；仅增加“sparse TOPS”并不能说明端到端收益，见 [[稀疏计算与条件执行]]。
