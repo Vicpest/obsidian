@@ -43,3 +43,7 @@
 - Attention 内部：`QKᵀ`（[[GEMM]]）→ [[Softmax]] → `P×V`（[[GEMM]]），增量解码时读取 [[KV Cache]]。
 
 页面中的“参考”均指向 [[参考资料]]，其中收录了联网核对过的 ONNX 官方算子规范与硬件实现资料。
+
+## 计算单元组织
+
+算子到硬件并非一一对应：大 GEMM 通常映射到二维 MAC/脉动阵列；固定长度 dot product 可映射到乘加树；Norm、Softmax、RoPE、激活和量化常映射到 LANE SIMD、归约树与 SFU。它们的周期、带宽和面积取舍见 [[npu/implement/乘加树、LANE 与 MAC 阵列实现对比|乘加树、LANE 与 MAC 阵列实现对比]]。

@@ -13,6 +13,7 @@
 | [[Tile 数据流与解耦控制]] | 如何把这些资源缩放为 tile 阵列 | 控制/数据面分离、任务事件、DMA、NoC、双缓冲 |
 | [[ABFT：检2纠1的逐周期实现]] | 如何在 NPU 上做端到端容错 | SEC-DED、checksum、syndrome、纠错/重放时序 |
 | [[GEMM 与脉动阵列实现]] | 线性层如何高效执行 | Tile、PE 阵列、数据流、累加与量化 |
+| [[乘加树、LANE 与 MAC 阵列实现对比]] | 不同乘加/向量计算单元如何取舍 | 乘加树、SIMD lane、MAC 阵列、周期与数据流 |
 | [[Attention 硬件实现]] | QKV、Softmax、KV Cache 如何协作 | 分块、online softmax、Prefill / Decode |
 | [[Norm、MLP 与向量引擎实现]] | 非 GEMM 算子如何映射 | RMSNorm、激活、SwiGLU、融合 |
 | [[存储层级、调度与性能分析]] | 为什么会带宽受限、如何调度 | SRAM、DRAM、DMA、Roofline、流水 |

@@ -52,3 +52,7 @@ A / B operand → multiply → accumulator → optional bias / scale → output
 4. 后处理能否和写回融合，避免额外的 [[npu/operator/tensor operator/Layout Transform|Layout Transform]]？
 
 Attention 中两次 GEMM 的特殊访存问题见 [[Attention 硬件实现]]。
+
+## 与其他乘加组织方式的关系
+
+二维 MAC/脉动阵列适合 M、N 较大且规则的 GEMM；固定 K 的 dot product 可使用局部 [[乘加树、LANE 与 MAC 阵列实现对比|乘加树]]，Decode 的 M≈1 小 GEMM 和 Norm/activation 更适合 LANE SIMD。四者在周期、输入帧对齐和片上复用上的取舍见 [[乘加树、LANE 与 MAC 阵列实现对比]]。
