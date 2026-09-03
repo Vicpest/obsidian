@@ -11,6 +11,7 @@
 | [[Encoder、Decoder 与交叉注意力]] | 三种 Attention 在推理上有何差别 | self-attention、causal mask、cross-attention、静态 memory |
 | [[NPU 总体硬件架构]] | 哪些硬件模块承载这些计算 | 控制器、计算引擎、存储层级、DMA |
 | [[Tile 数据流与解耦控制]] | 如何把这些资源缩放为 tile 阵列 | 控制/数据面分离、任务事件、DMA、NoC、双缓冲 |
+| [[ABFT：检2纠1的逐周期实现]] | 如何在 NPU 上做端到端容错 | SEC-DED、checksum、syndrome、纠错/重放时序 |
 | [[GEMM 与脉动阵列实现]] | 线性层如何高效执行 | Tile、PE 阵列、数据流、累加与量化 |
 | [[Attention 硬件实现]] | QKV、Softmax、KV Cache 如何协作 | 分块、online softmax、Prefill / Decode |
 | [[Norm、MLP 与向量引擎实现]] | 非 GEMM 算子如何映射 | RMSNorm、激活、SwiGLU、融合 |
