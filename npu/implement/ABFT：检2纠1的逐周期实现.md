@@ -20,14 +20,14 @@ ABFT 把 checksum 冗余嵌入矩阵算法。本文将“检 2 纠 1”限定为
 
 设 P×Q 阵列、K_t 归约长度，每 PE 每周期一次 MAC，阵列填充/排空 T_fill≈P+Q−2，checksum reducer 延迟 T_red：
 
-| 周期 | 数据面 | ABFT 面 | 时序问题 |
-| ---: | --- | --- | --- |
-| 0…K_t−1 | A/B 流入，PE 累加 partial sum | 输入 checksum 与输出 parity 同步累加 | checksum 不得阻塞 operand injection |
-| K_t…K_t+T_fill−1 | 最后片段排空，C tile 完成 | 行/列校验寄存器接收结果 | 最后 PE 稳定后才能采样 |
-| K_t+T_fill | C 进入 commit buffer | 锁存 syndrome 输入 | 建立 commit fence |
-| +1…+T_red | 下一 tile 在 ping-pong buffer 计算 | 归约、比较、单错/双错分类 | reducer 可能争用 SRAM/NoC |
-| +T_red+1 | 正常写回或异常旁路 | clean 提交；单错输出位置/幅值；双错 poison | 异常不能污染 writeback |
-| +T_red+2…+T_corr | 单错 word 读改写 | 更新校验并发 corrected event | T_corr 取决于定位、读改写和重校验 |
+|               周期 | 数据面                           | ABFT 面                       | 时序问题                            |
+| ---------------: | ----------------------------- | ---------------------------- | ------------------------------- |
+|          0…K_t−1 | A/B 流入，PE 累加 partial sum      | 输入 checksum 与输出 parity 同步累加  | checksum 不得阻塞 operand injection |
+| K_t…K_t+T_fill−1 | 最后片段排空，C tile 完成              | 行/列校验寄存器接收结果                 | 最后 PE 稳定后才能采样                   |
+|       K_t+T_fill | C 进入 commit buffer            | 锁存 syndrome 输入               | 建立 commit fence                 |
+|        +1…+T_red | 下一 tile 在 ping-pong buffer 计算 | 归约、比较、单错/双错分类                | reducer 可能争用 SRAM/NoC           |
+|         +T_red+1 | 正常写回或异常旁路                     | clean 提交；单错输出位置/幅值；双错 poison | 异常不能污染 writeback                |
+| +T_red+2…+T_corr | 单错 word 读改写                   | 更新校验并发 corrected event       | T_corr 取决于定位、读改写和重校验            |
 
 例：P=Q=16、K_t=16、T_fill=30、T_red=2，则 GEMM tile 产生延迟 46 cycles。稳态无错时 2-cycle 检测可与下一 tile 重叠；单错定位 1 cycle、输出读改写 1 cycle，约增加 2 个 commit 周期。未提交 partial sum 出错时，安全策略是丢弃并重算，代价接近再执行 46 cycles；双错只置 poison 并 replay。上述是参数化模板，不是固定 NPU 规格。
 
