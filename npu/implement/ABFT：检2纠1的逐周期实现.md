@@ -64,7 +64,60 @@ ABFT 发现的是算法关系被破坏，不自动知道物理故障位置；输
 
 SRAM/ECC 提供固定延迟的物理层保护，ABFT 提供跨 PE、DMA 和算子边界的端到端检查，runtime replay 处理双错和不可纠正故障；编译器应把 checksum tile、commit fence、replay buffer 作为显式资源。
 
-## 6. 资料
+## 6. 输入数据流接口：推荐分层
+
+如果同时考虑 A/B/权重/KV 的输入数据流，推荐采用“内存映射搬运 + ready/valid 流 + 独立控制”的三层接口，而不是让 MAC 阵列直接暴露 DRAM 总线。
+
+### 6.1 片外：AXI4-MM 或等价 DMA 接口
+
+DMA 从 DRAM/HBM 读出 tile，完成 burst、地址转换、ECC/CRC 检查和 page-table 解析。descriptor 至少应包含：base/page address、byte length、tensor kind（A/B/weight/K/V）、layer/request/tile ID、shape/stride/K-step、checksum seed 或 expected checksum、epoch/version 和 poison 标志。AXI4-MM 只负责可靠搬运和突发效率，不把 ABFT 定位逻辑塞进 AXI 地址/响应通道。
+
+### 6.2 片上：ready/valid data + sideband
+
+从 DMA/NoC 到 tile SRAM、再到矩阵阵列，使用 ready/valid 流。每个 beat 除 W-bit packed data 外，携带：
+
+```text
+in_keep      : 尾 beat 的 byte/element mask
+in_last      : tile 或 K-step 结束
+in_kind      : A | B | K | V
+in_coord     : layer, request, tile, row/col, k_step
+in_checksum  : p0/p1/p2 或 parity fragment
+in_epoch     : replay/version 标识
+in_poison    : 上游已检测到不可用数据
+```
+
+只有 `in_valid && in_ready` 同时为 1 的周期才消耗一个 beat；`in_ready=0` 时发送端必须保持 data 和全部 sideband 不变。checksum accumulator 也只能在握手周期更新，否则一次 backpressure 就会造成校验漂移。
+
+推荐 A 流和 B 流使用两个独立通道；需要严格对齐时，用相同 coord/k_step 做 join，并在 join buffer 检查 epoch、kind 和 tile ID。
+
+### 6.3 控制/状态接口
+
+用 AXI4-Lite、CSR 或 command queue 配置 tile shape、checksum 模式/位宽/容差、expected-checksum 地址、commit fence、replay buffer、最大重放次数；通过 event/interrupt 报告 clean、corrected、double-error、poison 和 timeout。不要用 data stream 的 last 代替任务完成事件：last 只表示流段结束。
+
+### 6.4 握手与异常时序
+
+```text
+cycle t    : DMA valid=1，发送 A/B beat 与 checksum fragment
+cycle t+1  : SRAM ready=1，完成握手；checksum accumulator 更新
+cycle t+2  : ready=0（bank 冲突/阵列反压）；发送端保持 beat 不变
+cycle t+3  : ready=1；同一 beat 再次握手，checksum 只更新一次
+cycle ...  : last 握手后锁存 tile checksum，启动 T_red 检测
+```
+
+DMA/ECC/CRC 发现错误时优先重传；ABFT 发现输入 checksum 不一致时置 poison、禁止 commit、从可靠副本 replay；输出 syndrome 只有在 coord/epoch 仍匹配且错误位于可读改写范围时才局部纠正，否则重算。双错或校验器异常应按 request 隔离，避免阻塞无关 request。
+
+### 6.5 最小可行接口
+
+```text
+DRAM/HBM ── AXI4-MM DMA ──► NoC/Stream (ready-valid + ABFT sideband)
+                                      ├─► tile SRAM / join buffer
+                                      └─► checksum reducer + MAC array
+CSR/command queue ───────────────► descriptor、fence、replay、interrupt
+```
+
+RTL 原型可先实现 A-stream、B-stream 两个 ready/valid 通道；统一 stream_meta（tile_id、k_step、epoch、kind、keep、last、poison）；checksum sideband（parity 或 p0/p1/p2）；descriptor CSR；以及 clean/corrected/double_error/replay 状态事件。这样从 AXI4-MM 换成 CHI 或其他 NoC/DMA 协议时，阵列侧接口无需重写。
+
+## 7. 资料
 
 - [Huang & Abraham (1984), Algorithm-Based Fault Tolerance for Matrix Operations](https://doi.org/10.1109/TC.1984.1676475)
 - [Performance evaluation of checksum-based ABFT (DFTVS 2001)](https://doi.org/10.1109/DFTVS.2001.966800)
