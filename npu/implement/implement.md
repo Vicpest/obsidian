@@ -12,6 +12,7 @@
 | [[NPU 总体硬件架构]] | 哪些硬件模块承载这些计算 | 控制器、计算引擎、存储层级、DMA |
 | [[Tile 数据流与解耦控制]] | 如何把这些资源缩放为 tile 阵列 | 控制/数据面分离、任务事件、DMA、NoC、双缓冲 |
 | [[ABFT：检2纠1的逐周期实现]] | 如何在 NPU 上做端到端容错 | SEC-DED、checksum、syndrome、纠错/重放时序 |
+| [[大容量多 Bank SRAM 容错设计]] | 大容量片上存储如何隔离和恢复故障 | ECC、bit interleaving、scrub、BISR、bank remap、性能/面积代价 |
 | [[GEMM 与脉动阵列实现]] | 线性层如何高效执行 | Tile、PE 阵列、数据流、累加与量化 |
 | [[乘加树、LANE 与 MAC 阵列实现对比]] | 不同乘加/向量计算单元如何取舍 | 乘加树、SIMD lane、MAC 阵列、周期与数据流 |
 | [[Attention 硬件实现]] | QKV、Softmax、KV Cache 如何协作 | 分块、online softmax、Prefill / Decode |

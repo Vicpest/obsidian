@@ -47,4 +47,5 @@
 上述模块可以组织为多个相同或近似相同的 compute tile：tile 内有本地 SRAM、矩阵/向量/归约资源和轻量任务控制；tile 间由 NoC 交换数据和事件，边缘/全局 DMA 连接外部内存。控制面只提交任务与依赖，数据面持续运行 GEMM、attention 或向量 kernel。这样的分层有利于扩展阵列规模、安排双缓冲和降低控制对高带宽路径的干扰，详见 [[Tile 数据流与解耦控制]]。
 
 如果设计声称支持稀疏或 MoE，还要在模块图之外说明压缩格式、metadata/索引路径、动态路由和通信调度；仅增加“sparse TOPS”并不能说明端到端收益，见 [[稀疏计算与条件执行]]。
-若 NPU 需要算法级容错，应在 DMA、tile SRAM、PE 阵列和 commit path 之间增加 checksum/syndrome sideband，并把单错纠正、双错检测和 replay 作为显式异常路径，详见 [[ABFT：检2纠1的逐周期实现]]。
+
+若 NPU 需要算法级容错，应在 DMA、tile SRAM、PE 阵列和 commit path 之间增加 checksum/syndrome sideband，并把单错纠正、双错检测和 replay 作为显式异常路径，详见 [[ABFT：检2纠1的逐周期实现]]。对大容量多 bank 片上存储，还需同时设计 ECC、bit interleaving、scrub、spare row/bank 与降级映射，并分开评估 clean path 吞吐、load-to-use 延迟和异常恢复尾延迟，详见 [[大容量多 Bank SRAM 容错设计]]。

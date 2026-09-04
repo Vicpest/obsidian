@@ -64,6 +64,8 @@ ABFT 发现的是算法关系被破坏，不自动知道物理故障位置；输
 
 SRAM/ECC 提供固定延迟的物理层保护，ABFT 提供跨 PE、DMA 和算子边界的端到端检查，runtime replay 处理双错和不可纠正故障；编译器应把 checksum tile、commit fence、replay buffer 作为显式资源。
 
+当 tile SRAM 扩展为大容量多 bank 结构时，还要覆盖 ECC 无法单独处理的 bank/decoder 故障、scrub 端口争用和 degraded-bank remap。这些机制以及对吞吐、延迟和面积的分项建模见 [[大容量多 Bank SRAM 容错设计]]。
+
 ## 6. 输入数据流接口：推荐分层
 
 如果同时考虑 A/B/权重/KV 的输入数据流，推荐采用“内存映射搬运 + ready/valid 流 + 独立控制”的三层接口，而不是让 MAC 阵列直接暴露 DRAM 总线。
