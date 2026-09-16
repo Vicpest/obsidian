@@ -10,6 +10,7 @@
 | [[QKV 投影、布局与缓存]] | Q、K、V 如何产生、排布和存取 | 合并 QKV GEMM、RoPE、GQA/MQA、KV Cache 布局 |
 | [[Encoder、Decoder 与交叉注意力]] | 三种 Attention 在推理上有何差别 | self-attention、causal mask、cross-attention、静态 memory |
 | [[NPU 总体硬件架构]] | 哪些硬件模块承载这些计算 | 控制器、计算引擎、存储层级、DMA |
+| [[NPU 算子开发流程]] | 如何将算子交付为可调度、可验证的 NPU kernel | 契约、融合、tile、SRAM、接口、验证、性能闭环 |
 | [[Tile 数据流与解耦控制]] | 如何把这些资源缩放为 tile 阵列 | 控制/数据面分离、任务事件、DMA、NoC、双缓冲 |
 | [[NPU 常用 SRAM 功能类型]] | Weight、IFMAP、PSUM、OFMAP 等存储如何分工 | 功能型 SRAM、端口组织、banking、典型用途 |
 | [[ABFT：检2纠1的逐周期实现]] | 如何在 NPU 上做端到端容错 | SEC-DED、checksum、syndrome、纠错/重放时序 |
