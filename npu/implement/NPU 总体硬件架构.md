@@ -34,6 +34,8 @@
 | DMA / NoC         | 片外/片上数据搬运与多核分发      | 权重预取、结果写回、KV 读写                           |
 | Command processor | 执行编译器发出的指令、同步和事件    | tile 循环、双缓冲、核间调度                          |
 
+SRAM 的功能名称不能直接代表端口能力：weight/activation buffer 可能由 1P、1R1W 或多个 bank 组成，PE 附近的小容量多读写存储则可能采用 register file。常见组织及其面积、带宽和冲突取舍见 [[NPU 常用 SRAM 类型]]。
+
 ## 数据类型与累加精度
 
 - **输入/权重**：INT8、INT4、FP8、BF16 等决定 MAC 吞吐和带宽。
