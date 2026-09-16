@@ -1,4 +1,5 @@
 # 大容量多 Bank SRAM 容错设计
+**EDAC** ：**Error Detection And Correction**
 
 NPU 片上 SRAM 通常同时承载权重 tile、激活、partial sum 和 K/V tile。当容量扩展到多个 bank 时，容错不能只理解为“给每个 word 加 ECC”：数据位、校验位、decoder、sense amplifier、bank 控制器和共享互连都可能故障，而 bank 冲突、scrub 和修复访问还会与计算流量争用端口。因此应分别定义故障覆盖、无错稳态带宽以及异常恢复代价。
 
