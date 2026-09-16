@@ -1,8 +1,42 @@
-# NPU 常用 SRAM 类型
+# NPU 常用 SRAM 功能类型
 
-NPU 中的 SRAM 通常用于权重、激活、partial sum、KV tile、查找表和控制状态。所谓“SRAM 类型”可能指端口组织、物理实现或系统用途；三者不能混为一谈。例如，“activation buffer”描述存放什么数据，“1R1W”描述每周期能做什么访问，“banked SRAM”描述如何用多个宏提高并行度。
+NPU 中的 SRAM 首先按**存放的数据功能**划分：权重（weight）、输入特征图（IFMAP）、部分和（PSUM）和输出特征图（OFMAP）是最常见的四类。端口组织和物理实现则是后续实现选择；例如，“IFMAP SRAM”描述存放什么数据，“1R1W”描述每周期能做什么访问，“banked SRAM”描述如何用多个宏提高并行度。
 
-## 1. 按端口组织分类
+## 1. 常用功能型 SRAM
+
+| SRAM 类型 | 存放内容 | 数据来源与去向 | 典型读写模式 | 设计重点 |
+| --- | --- | --- | --- | --- |
+| Weight SRAM / WBUF | 卷积核、GEMM 权重、QKV/MLP 参数 | 从 DRAM/HBM 或片外 Flash 预取；送往 PE 阵列 | 成块写入后被大量连续读取/广播，读多写少 | 最大化权重复用与广播带宽；常用 ping-pong、多 bank 或只读副本 |
+| IFMAP SRAM / IBUF | 输入 feature map；Transformer 中的输入/中间 activation tile | 由上一层 OFMAP、DMA 或前序算子产生；送给卷积/GEMM/向量单元 | 写入一个 tile 后，多次按滑窗、行列或 token 读取 | 需匹配数据流与滑窗访问；卷积常配 line buffer，GEMM 常按 M/K tile 分块 |
+| PSUM SRAM / Accumulator Buffer | 尚未完成归约的部分和 | PE 阵列或归约树写入；完成全部 K/channel/reduction 后转为 OFMAP | 高频 read-modify-write，或在 PE 寄存器中累加后批量写回 | 位宽通常高于输入；最接近计算单元，需高读写带宽、避免 bank conflict，并考虑溢出/ECC |
+| OFMAP SRAM / OBUF | 已完成的输出 feature map / output activation | 来自已完成的 PSUM；供下一层作为 IFMAP，或 DMA 写回外存 | 生产者写入、下游消费者读取；可能与下一层流水重叠 | 常与 IFMAP 物理复用或用 ping-pong buffer；要避免输出尚未消费即被 DMA 覆盖 |
+| Global Buffer / Shared SRAM | 多个计算 tile 共享的权重、activation、OFMAP 或通信中转数据 | 外部 DMA、NoC 与多个 tile 之间的中间层 | 多源随机读写、跨 tile 共享 | 容量大、bank 多；仲裁、QoS、NoC 注入和 bank conflict 往往比单宏端口更关键 |
+| KV SRAM / KV Tile Buffer | Attention 的 K/V cache page 或从外存搬入的 K/V tile | Decode 每步追加新 K/V；Attention 反复读取历史 K/V | 小量顺序写入，长序列的大量读取 | 容量和读带宽敏感；按 head/page/bank 排布，避免 Decode 访问碎片化 |
+| Line Buffer / Window Buffer | 卷积/池化当前行及邻近行、滑动窗口 | 流式 IFMAP 输入；向 MAC 阵列提供窗口 | 每周期推进写指针，同时读取多个窗口位置 | 用行缓存、banking 或 shift register 减少重复从 IFMAP SRAM 读取；主要服务 CNN/视觉算子 |
+| LUT / Coefficient SRAM | 激活函数、量化 scale、近似函数系数、微码表 | 初始化或低频配置写入；由 SFU/向量单元读取 | 几乎只读、容量小 | 低延迟与确定性优先；不需要在线更新时可用 ROM |
+| Metadata / Descriptor SRAM | tensor 描述符、地址表、稀疏索引、KV page table、任务队列 | runtime/控制器写入；DMA、NoC、调度器读取 | 小粒度随机读写，容量小但关键 | 访问延迟和可靠性重要；常用 ECC、复制或小型多端口 register file |
+
+### 1.1 Weight、IFMAP、PSUM、OFMAP 的关系
+
+以卷积或矩阵乘为例，计算核心持续读取 weight 和 IFMAP，产生并累加 PSUM；当一个输出元素经历全部归约维度后，PSUM 才成为 OFMAP。OFMAP 可直接供下一层读取，此时它就是下一层的 IFMAP。
+
+```text
+DRAM/HBM ──DMA──► Weight SRAM ──────────┐
+                                        ├──► PE / MAC array ──► PSUM SRAM
+DRAM/HBM / 上一层 OFMAP ──► IFMAP SRAM ─┘                         │
+                                                                   ▼
+                                                             OFMAP SRAM
+                                                                   │
+                                              下一层 IFMAP / DMA write-back
+```
+
+- **Weight stationary**：weight 尽量留在 Weight SRAM/PE 附近，流动 IFMAP 和 PSUM；适合权重复用高的卷积、GEMM。
+- **Output stationary**：PSUM 尽量留在 accumulator 或 PSUM SRAM，直到归约完成；可减少高位宽 PSUM 的搬运。
+- **Row stationary / input stationary**：让 IFMAP 或局部窗口在近 PE 存储中复用；常见于卷积数据流。
+
+名称不要求一一对应物理宏：小设计可让 IFMAP 与 OFMAP 分时复用同一 SRAM；大设计则可能各有多个 bank。真正需要分离的是会在同一周期并发访问、且无法通过双缓冲错开的数据流。
+
+## 2. 按端口组织分类
 
 端口能力决定同一 SRAM 宏在一个周期内可接受的访问组合。下表中的能力是逻辑上限，实际还受 SRAM compiler、时钟频率、读延迟和同地址冲突规则约束。
 
@@ -14,27 +48,27 @@ NPU 中的 SRAM 通常用于权重、激活、partial sum、KV tile、查找表�
 | 多端口 SRAM / Register File | 多读、多写，如 2R1W、4R2W | 单周期向多个 lane/PE 广播或收集数据 | 端口数增加会快速放大面积、布线和动态功耗，容量通常较小 | 向量寄存器、PE operand file、累加器、调度表和小型 metadata |
 | 伪多端口 SRAM | 用复制、banking、多泵或仲裁模拟多端口 | 可用普通宏获得更高逻辑并发 | 复制消耗容量；多泵提高频率/功耗；banking 可能冲突 | 大容量高带宽 scratchpad、多个读消费者、低成本多端口接口 |
 
-### 1.1 1P：容量与能效优先
+### 2.1 1P：容量与能效优先
 
 1P SRAM 只有一个读写端口，一个周期只能完成一次读或一次写。它适合访问方向稳定、可由调度器分时复用的存储。例如权重先由 DMA 写入，计算阶段再连续读取。若 DMA 写入下一 tile 与阵列读取当前 tile 必须重叠，通常使用两个 1P bank 做 ping-pong，而不是直接升级为更昂贵的双端口宏。
 
-### 1.2 1R1W：流式生产者—消费者
+### 2.2 1R1W：流式生产者—消费者
 
 1R1W SRAM 有独立读、写端口，适合一侧持续填充、另一侧持续消费。典型例子是 DMA 写 activation tile、向量或矩阵引擎同时读取另一地址，以及 Decode 中追加新 K/V 的同时读取历史 K/V。
 
 1R1W 不等于任意双端口：它不能自然支持两个读请求或两个写请求。同一周期读写同一地址时，输出可能是旧值、新值或未定义，必须依据宏规格在 RTL 中加入 bypass、stall 或禁止条件。
 
-### 1.3 2RW：灵活但昂贵
+### 2.3 2RW：灵活但昂贵
 
 2RW 的两个端口都能独立读写，适合访问方向动态变化的共享存储。它可以让计算引擎和 DMA、两个计算引擎，或前台请求和 ECC scrub 并行工作。但两个端口访问同一地址、尤其同时写入时，需要明确优先级和冲突行为。
 
 如果工作负载大部分时间只需要“一读一写”，2RW 的额外灵活性未必能转化为性能，应先比较 1R1W、双缓冲 1P 和多 bank 1P 的面积、频率与有效带宽。
 
-### 1.4 多端口 Register File：小容量、近计算
+### 2.4 多端口 Register File：小容量、近计算
 
 PE 和 vector lane 常要求同周期读取多个操作数并写回结果，因此更适合多端口 register file、寄存器阵列或 latch-based memory。它们在逻辑功能上也可表现为 SRAM，但容量、端口和物理实现与大容量 compiled SRAM 不同。随着端口数增加，mux、decoder、wordline、bitline 和布线成本迅速上升，因此通常只放最热的数据，而不承担大容量 tile buffer。
 
-## 2. Banked SRAM 不是一种新端口宏
+## 3. Banked SRAM 不是一种新端口宏
 
 Banking 是用多个独立 SRAM 宏构成一个逻辑地址空间。若有 `B` 个 1P bank 且请求均匀落到不同 bank，理论上每周期最多完成 `B` 次访问；多个请求命中同一 bank 时仍需仲裁或停顿。
 
@@ -61,7 +95,7 @@ logical address
 
 多 bank 的带宽、ECC、scrub 与失效降级问题见 [[大容量多 Bank SRAM 容错设计]]。
 
-## 3. 按物理实现分类
+## 4. 按物理实现分类
 
 端口组织是架构设计最常用的分类；在 ASIC 物理实现中，还会按 bitcell 和 compiler 优化目标区分宏类型：
 
@@ -75,21 +109,21 @@ logical address
 
 “6T、8T、10T”只说明 bitcell 拓扑的一部分，不能直接推出用户可见端口数、宏面积或访问周期。同一工艺的可用组合由 memory compiler 决定；NPU RTL 通常先确定容量、宽度、端口与时序，再由物理设计选择可实现的宏。FPGA 中则映射到 block RAM、UltraRAM 或分布式 RAM，无需也不能由 RTL 设计者选择 6T/8T bitcell。
 
-## 4. 按 NPU 功能划分
+## 5. 功能型 SRAM 与端口组织的对应
 
 功能名不能直接决定 SRAM 端口，仍需根据数据流计算每周期读写次数。
 
 | 逻辑存储 | 访问特征 | 常见实现选择 |
 | --- | --- | --- |
-| Weight buffer | DMA 成块写入，计算阶段连续读或广播，读多写少 | ping-pong 1P、多 bank 1P；多个消费者时复制只读 bank |
-| Activation buffer | 生产者写、下游算子读，常需算子间流水 | 1R1W、ping-pong 1P 或 banked 1P |
-| Partial-sum buffer | 高频读—修改—写，位宽通常高于输入 | 1R1W/2RW、banked accumulator SRAM；近 PE 时使用 register file |
-| KV buffer / KV tile cache | 每步追加少量新 K/V，Attention 读取大量历史数据 | 1R1W 或多 bank 1P；容量不足时作为片外 KV Cache 的 tile staging buffer |
+| Weight SRAM | DMA 成块写入，计算阶段连续读或广播，读多写少 | ping-pong 1P、多 bank 1P；多个消费者时复制只读 bank |
+| IFMAP / OFMAP SRAM | 一侧生产、一侧消费，常需算子间流水 | 1R1W、ping-pong 1P 或 banked 1P |
+| PSUM SRAM | 高频读—修改—写，位宽通常高于输入 | 1R1W/2RW、banked accumulator SRAM；近 PE 时使用 register file |
+| KV SRAM / KV tile buffer | 每步追加少量新 K/V，Attention 读取大量历史数据 | 1R1W 或多 bank 1P；容量不足时作为片外 KV Cache 的 tile staging buffer |
 | Line buffer / sliding-window buffer | 固定速率写入与窗口式多点读取 | 1R1W、多个 bank 或 shift-register/latch 结构 |
 | LUT / coefficient memory | 初始化后只读、容量小 | ROM、1P SRAM 或寄存器；是否使用 SRAM 取决于是否需要在线更新 |
 | Metadata / queue / page table | 容量小、随机访问、可能多读写 | 小型多端口 RF、复制 RAM 或 1R1W SRAM，并加强 ECC/复制保护 |
 
-## 5. 选型时必须确认的宏属性
+## 6. 选型时必须确认的宏属性
 
 仅写“使用双端口 SRAM”不足以完成接口设计。至少需要从目标 PDK 的 memory compiler 或 FPGA memory primitive 中确认：
 
@@ -104,7 +138,7 @@ logical address
 
 同步 compiled SRAM 常见为“地址在周期 `t` 寄存、数据在 `t+1` 或更晚返回”，不能按组合数组建模后再假定综合工具会自动得到相同宏。FPGA 上的 block RAM / UltraRAM 等资源也有各自的端口、read-first/write-first 和输出寄存器限制，应以器件手册为准。
 
-## 6. NPU 选型方法
+## 7. NPU 选型方法
 
 先从 kernel 的周期级访问需求出发，而不是先选宏名称：
 

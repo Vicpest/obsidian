@@ -34,7 +34,7 @@
 | DMA / NoC         | 片外/片上数据搬运与多核分发      | 权重预取、结果写回、KV 读写                           |
 | Command processor | 执行编译器发出的指令、同步和事件    | tile 循环、双缓冲、核间调度                          |
 
-SRAM 的功能名称不能直接代表端口能力：weight/activation buffer 可能由 1P、1R1W 或多个 bank 组成，PE 附近的小容量多读写存储则可能采用 register file。常见组织及其面积、带宽和冲突取舍见 [[NPU 常用 SRAM 类型]]。
+NPU 的片上存储通常分为 Weight SRAM、IFMAP SRAM、PSUM SRAM 和 OFMAP SRAM；它们可由 1P、1R1W 或多个 bank 组成，PE 附近的小容量 PSUM 则可能采用 register file。常见功能分工及其面积、带宽和冲突取舍见 [[NPU 常用 SRAM 功能类型]]。
 
 ## 数据类型与累加精度
 
